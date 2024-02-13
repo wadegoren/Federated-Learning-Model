@@ -5,6 +5,10 @@ from torchvision.transforms import Compose, ToTensor, Normalize
 from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10
 
+import datetime
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric import rsa
+
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class Net(nn.Module):
@@ -56,9 +60,90 @@ def load_data():
 def load_model():
     return Net().to(DEVICE)
 
+
+
+
+
+
+
+
+
+
+def generate_prime_pairs(num_sets, public_exponent=65537, key_size=2048):
+    prime_sets = []
+    same_n_and_e = False
+    num_rounds = 0
+
+    while not same_n_and_e:
+        num_rounds += 1
+        print(f"Starting round {num_rounds}")
+
+        # Generate a single random prime number for p
+        p = rsa.generate_private_key(
+            public_exponent=public_exponent,
+            key_size=key_size,
+            backend=default_backend()
+        ).public_key().public_numbers().n
+
+        # Generate a random prime number for q, making sure it's different from p
+        while True:
+            q = rsa.generate_private_key(
+                public_exponent=public_exponent,
+                key_size=key_size,
+                backend=default_backend()
+            ).public_key().public_numbers().n
+            
+            if p != q:
+                break
+
+        # Calculate n
+        n = p * q
+
+        # Append the prime pair (p, q) and n to the list for the specified number of sets
+        for _ in range(num_sets):
+            prime_sets.append((p, q, n))
+
+        # Ensure that all sets have the same n and public exponent
+        same_n_and_e = all(set_[2:] == prime_sets[0][2:] for set_ in prime_sets)
+
+    print(f"The number of sets until correct key was generated is {num_rounds}")
+    return prime_sets
+
+
+
+
 if __name__ == "__main__":
+    # Example usage:
+    num_sets = 5  # Number of prime pairs to generate
+    prime_sets = generate_prime_pairs(num_sets)
+
+    n_list = []
+
+    if prime_sets:
+        for i, (p, q, n) in enumerate(prime_sets):
+            print(f"Set {i + 1} - p: {p}, q: {q}, n: {n}")
+            n_list.append(n)
+    else:
+        print("Error, did not share n and e values")
+
+    print(f"The number of sets is {len(prime_sets)}")
+
+    same_n = True
+    for i in range(len(n_list)-1):
+        if n_list[i] != n_list[i+1]:
+            same_n = False
+
+    if same_n:
+        print("The n's are all the same!")
+    else:
+        print("The n's are not the same!")
+    
+
+
+    '''
     net = load_model()
     trainloader, testloader = load_data()
     train(net, trainloader, 5)
     loss, accuracy = test(net, testloader)
     print(f"Loss: {loss:.5f}, Accuracy: {accuracy:.3f}")
+    '''
