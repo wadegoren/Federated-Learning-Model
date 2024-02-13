@@ -4,6 +4,10 @@ import torch.nn.functional as F
 from torchvision.transforms import Compose, ToTensor, Normalize
 from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10
+from flwr_datasets import FederatedDataset
+# pip install flwr_datasets[vision] 
+
+NUM_CLIENTS = 10
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -25,15 +29,14 @@ class Net(nn.Module):
         x = F.relu(self.fc2(x))
         return self.fc3(x)
 
-def train(net, trainloader, epochs):
+def train(net, trainloader, optim, epochs):
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
     for epoch in range(epochs):
         for images, labels in trainloader:
             images, labels = images.to(DEVICE), labels.to(DEVICE)
-            optimizer.zero_grad()
+            optim.zero_grad()
             criterion(net(images), labels).backward()
-            optimizer.step()
+            optim.step()
 
 def test(net, testloader):
     criterion = torch.nn.CrossEntropyLoss()
@@ -49,9 +52,19 @@ def test(net, testloader):
 
 def load_data():
     trf = Compose([ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-    trainset = CIFAR10("./data", train=True, download=True, transform=trf)
+    #trainset = CIFAR10("./data", train=True, download=True, transform=trf)
+    trainset = FederatedDataset(dataset="cifar10", partitioners={"train": NUM_CLIENTS})
     testset = CIFAR10("./data", train=False, download=True, transform=trf)
-    return DataLoader(trainset, batch_size=32, shuffle=True), DataLoader(testset)
+    # return DataLoader(trainset, batch_size=32, shuffle=True), DataLoader(testset)
+    return trainset, testset
+
+def apply_transforms(batch):
+    """Get transformation for MNIST dataset"""
+
+    # transformation to convert images to tensors and apply normalization
+    transforms = Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
+    batch["image"] = [transforms(img) for img in batch["image"]]
+    return batch
 
 def load_model():
     return Net().to(DEVICE)
