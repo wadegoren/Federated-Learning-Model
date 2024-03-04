@@ -5,6 +5,9 @@ from torchvision.transforms import Compose, ToTensor, Normalize
 from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10
 
+from sklearn.model_selection import train_test_split
+import numpy as np
+
 import datetime
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -110,7 +113,41 @@ def generate_prime_pairs(num_sets, public_exponent=65537, key_size=2048):
     return prime_sets
 
 
+def split_dataset_by_class(X, y, x):
+    """
+    Split the dataset into x mini-datasets, each containing samples from a single class.
 
+    Parameters:
+    - X: Features of the dataset.
+    - y: Labels of the dataset.
+    - x: Number of mini-datasets.
+
+    Returns:
+    - List of mini-datasets, where each mini-dataset is a tuple (X_mini, y_mini).
+    """
+    # Get unique classes in the dataset
+    unique_classes = np.unique(y)
+
+    # Initialize list to store mini-datasets
+    mini_datasets = []
+
+    # Iterate over each class and split the dataset
+    for class_label in unique_classes:
+        # Filter samples of the current class
+        class_indices = np.where(y == class_label)[0]
+        X_class = X[class_indices]
+        y_class = y[class_indices]
+
+        # Split the class into x mini-datasets
+        X_mini_datasets, _, y_mini_datasets, _ = train_test_split(
+            X_class, y_class, test_size=1/x, stratify=y_class, random_state=42
+        )
+
+        # Add each mini-dataset to the list
+        for i in range(x):
+            mini_datasets.append((X_mini_datasets[i], y_mini_datasets[i]))
+
+    return mini_datasets
 
 if __name__ == "__main__":
     # Example usage:
