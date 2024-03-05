@@ -104,7 +104,21 @@ def generate_prime_pairs(num_sets, public_exponent=65537, key_size=2048):
 
         # Append the prime pair (p, q) and n to the list for the specified number of sets
         for _ in range(num_sets):
-            prime_sets.append((p, q, n))
+            # Generate different primes for each set
+            p_set = rsa.generate_private_key(
+                public_exponent=public_exponent,
+                key_size=key_size,
+                backend=default_backend()
+            ).public_key().public_numbers().n
+
+            q_set = rsa.generate_private_key(
+                public_exponent=public_exponent,
+                key_size=key_size,
+                backend=default_backend()
+            ).public_key().public_numbers().n
+
+            # Append the prime pair (p_set, q_set) and n to the list
+            prime_sets.append((p_set, q_set, n))
 
         # Ensure that all sets have the same n and public exponent
         same_n_and_e = all(set_[2:] == prime_sets[0][2:] for set_ in prime_sets)
@@ -151,7 +165,7 @@ def split_dataset_by_class(X, y, x):
 
 if __name__ == "__main__":
     # Example usage:
-    num_sets = 5  # Number of prime pairs to generate
+    num_sets = 20  # Number of prime pairs to generate
     prime_sets = generate_prime_pairs(num_sets)
 
     n_list = []
