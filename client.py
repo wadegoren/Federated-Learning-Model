@@ -4,8 +4,16 @@ import torch
 from collections import OrderedDict
 import random
 import cryptography
+import sys
 
 prime_list = [53, 61]
+
+if len(sys.argv) != 2:
+    print("Usage: python3 client.py <test_case>")
+    sys.exit(1)
+
+i = sys.argv[1]
+print("This is i: {i}")
 
 def gcd(a, b):
     #Calculates the greatest common divisor 
@@ -20,7 +28,7 @@ def set_parameters(model, parameters): # Utility function to set parameters of m
     return model
 
 net = load_model()
-trainloader, testloader = load_data()
+trainloader, testloader = load_data(i)
 
 class FlowerClient(fl.client.NumPyClient): # Update weights of client model
     def __init__(self):
