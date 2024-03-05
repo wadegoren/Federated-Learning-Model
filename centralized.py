@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torchvision.transforms import Compose, ToTensor, Normalize
 from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10
+import sklearn
 
 from sklearn.model_selection import train_test_split
 import numpy as np
@@ -54,43 +55,43 @@ def test(net, testloader):
             correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
     return loss / len(testloader.dataset), correct / total
 
-# def load_data():
-#     trf = Compose([ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-#     trainset = CIFAR10("./data", train=True, download=True, transform=trf)
-#     testset = CIFAR10("./data", train=False, download=True, transform=trf)
-#     return DataLoader(trainset, batch_size=32, shuffle=True), DataLoader(testset)
-
-def load_data(i):
+def load_data():
     trf = Compose([ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
     trainset = CIFAR10("./data", train=True, download=True, transform=trf)
     testset = CIFAR10("./data", train=False, download=True, transform=trf)
+    return DataLoader(trainset, batch_size=32, shuffle=True), DataLoader(testset)
+
+# def load_data(i):
+#     trf = Compose([ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+#     trainset = CIFAR10("./data", train=True, download=True, transform=trf)
+#     testset = CIFAR10("./data", train=False, download=True, transform=trf)
     
-    # Get unique classes in the dataset
-    classes = trainset.classes
+#     # Get unique classes in the dataset
+#     classes = trainset.classes
     
-    # Calculate number of classes per partition
-    classes_per_partition = len(classes) // 5  # Assuming you want to divide into 5 partitions
+#     # Calculate number of classes per partition
+#     classes_per_partition = len(classes) // 5  # Assuming you want to divide into 5 partitions
     
-    # Calculate start and end index of classes for this partition
-    start_idx = i * classes_per_partition
-    end_idx = (i + 1) * classes_per_partition if i < 4 else len(classes)
+#     # Calculate start and end index of classes for this partition
+#     start_idx = i * classes_per_partition
+#     end_idx = (i + 1) * classes_per_partition if i < 4 else len(classes)
     
-    # Select classes for this partition
-    selected_classes = classes[start_idx:end_idx]
+#     # Select classes for this partition
+#     selected_classes = classes[start_idx:end_idx]
     
-    # Filter samples based on selected classes
-    train_indices = [idx for idx, (_, label) in enumerate(trainset) if label in selected_classes]
-    test_indices = [idx for idx, (_, label) in enumerate(testset) if label in selected_classes]
+#     # Filter samples based on selected classes
+#     train_indices = [idx for idx, (_, label) in enumerate(trainset) if label in selected_classes]
+#     test_indices = [idx for idx, (_, label) in enumerate(testset) if label in selected_classes]
     
-    # Subset datasets based on selected indices
-    train_subset = torch.utils.data.Subset(trainset, train_indices)
-    test_subset = torch.utils.data.Subset(testset, test_indices)
+#     # Subset datasets based on selected indices
+#     train_subset = torch.utils.data.Subset(trainset, train_indices)
+#     test_subset = torch.utils.data.Subset(testset, test_indices)
     
-    # Create dataloaders for train and test subsets
-    trainloader = DataLoader(train_subset, batch_size=32, shuffle=True)
-    testloader = DataLoader(test_subset, batch_size=32, shuffle=False)
+#     # Create dataloaders for train and test subsets
+#     trainloader = DataLoader(train_subset, batch_size=32, shuffle=True)
+#     testloader = DataLoader(test_subset, batch_size=32, shuffle=False)
     
-    return trainloader, testloader
+#     return trainloader, testloader
 
 
 

@@ -1,29 +1,18 @@
 #!/bin/bash
 
-# Function to run client.py with a specific test case in a new terminal
-run_client() {
-    i=$1
-    open -a Terminal.app "./client.py"
-}
+# Define the path to the Python scripts
+client_script_path="/Users/matthewmaceachern/Downloads/Federated-Learning-Model/client.py"
+server_script_path="/Users/matthewmaceachern/Downloads/Federated-Learning-Model/server.py"
+venv_dir="/Users/matthewmaceachern/Downloads/Federated-Learning-Model/venv"
 
-# Function to run server.py in a new terminal
-run_server() {
-    open -a Terminal.app <<EOF
-    echo "This is the Terminal window."
-    ls
-    cd /path/to/directory
-    python3 script.py
-EOF
-}
+# Run the server.py script
+osascript -e 'tell application "Terminal" to do script "source '"$venv_dir"'/bin/activate && pip install pyOpenSSL scikit-learn flwr torch torchvision && sleep 5 && python '"$server_script_path"'"'
 
-# Run server.py in a separate terminal
-echo "Running server.py in a separate terminal..."
-run_server
+# Wait for a brief moment before starting the clients
+sleep 15
 
-# Run client.py in 5 different terminals with different test cases
-echo "Running client.py in 5 different terminals with different test cases..."
-for i in {1..5}
+# Run the client.py script five times
+for ((i=1; i<=5; i++))
 do
-    echo "Terminal $i"
-    run_client $i
+    osascript -e 'tell application "Terminal" to do script "source '"$venv_dir"'/bin/activate && pip install pyOpenSSL scikit-learn flwr torch torchvision && sleep 5 && python '"$client_script_path"'"'
 done
