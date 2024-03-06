@@ -63,10 +63,20 @@ def load_data(i_str):
 net = load_model()
 
 class FlowerClient(fl.client.NumPyClient):
+    def __init__(self, client_number):
+        super.__init__(self)
+        self.client_number = client_number
+        self.glob = 0 #Variable to check to make sure that the current model is the global model
+
     def get_parameters(self, config):
         return [val.cpu().numpy() for _, val in net.state_dict().items()]
 
     def fit(self, parameters, config):
+        if (self.client_number == 1):
+            self.glob = 1
+            print("TESTING GLOBAL MODEL\n")
+            self.evaluate(parameters, config)
+            self.glob = 0
         set_parameters(net, parameters)
         train(net, trainloader, epochs=1)
         return self.get_parameters({}), len(trainloader.dataset), {}
@@ -74,6 +84,8 @@ class FlowerClient(fl.client.NumPyClient):
     def evaluate(self, parameters, config):
         set_parameters(net, parameters)
         loss, accuracy = test(net, testloader)
+        if (self.client_number == 1 and self.glob == 1):
+            print("GLOBAL MODEL ACCURACY: ", accuracy)
         return float(loss), len(testloader.dataset), {"accuracy": accuracy}
 
 if __name__ == "__main__":
