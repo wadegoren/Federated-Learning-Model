@@ -14,6 +14,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+print("Using" + DEVICE)
 
 class Net(nn.Module):
     def __init__(self):
@@ -97,14 +98,6 @@ def load_data():
 
 def load_model():
     return Net().to(DEVICE)
-
-
-
-
-
-
-
-
 
 
 def generate_prime_pairs(num_sets, public_exponent=65537, key_size=2048):
