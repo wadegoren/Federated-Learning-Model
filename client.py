@@ -1,64 +1,88 @@
-# Client.py
 from centralized import train, test, load_data, load_model
 import flwr as fl
 import torch
-from collections import OrderedDict
 import sys
+from torchvision.transforms import Compose, ToTensor, Normalize
+from torchvision.datasets import CIFAR10
+from torch.utils.data import DataLoader
+from collections import OrderedDict
+NUM_CLIENTS = 10
 
-def set_parameters(model, parameters): # Utility function to set parameters of model
+def set_parameters(model, parameters): 
     params_dict = zip(model.state_dict().keys(), parameters)
     state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-    model.load_state_dict(state_dict, strict=True) # Model should always have same dimensions 
+    model.load_state_dict(state_dict, strict=True)
     return model
 
+def load_data(i_str):
+    i = int(i_str)  # Convert string to integer
+    trf = Compose([ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    trainset = CIFAR10("./data", train=True, download=True, transform=trf)
+    testset = CIFAR10("./data", train=False, download=True, transform=trf)
+    
+    num_classes = len(trainset.classes)
+    classes_per_partition = num_classes // NUM_CLIENTS
+
+    start_idx = (i - 1) * classes_per_partition
+    end_idx = i * classes_per_partition if i < 10 else num_classes
+
+    selected_classes_indices = list(range(start_idx, end_idx))
+    print("Selectedf classes indicies: ", selected_classes_indices)
+    selected_classes_names = [trainset.classes[idx] for idx in selected_classes_indices]  # Get class names
+    print("Selected classes names:", selected_classes_names)
+
+
+    train_indices = [idx for idx, (_, label) in enumerate(trainset) if label in selected_classes_indices]
+    # print("TRain indicies: ", train_indices)
+    test_indices = [idx for idx, (_, label) in enumerate(testset) if label in selected_classes_indices]
+    # print("test indicies: ", test_indices)
+
+
+    train_subset = torch.utils.data.Subset(trainset, train_indices)
+    test_subset = torch.utils.data.Subset(testset, test_indices)
+
+    trainloader = DataLoader(train_subset, batch_size=32, shuffle=True)
+    testloader = DataLoader(test_subset, batch_size=32, shuffle=False)
+
+    print("Number of samples in trainset:", len(trainset))
+    print("Number of samples in testset:", len(testset))
+    print("Number of train indices:", len(train_indices))
+    print("Number of test indices:", len(test_indices))
+
+    # train_subset = torch.utils.data.Subset(trainset, train_indices)
+    # test_subset = torch.utils.data.Subset(testset, test_indices)
+
+    print("Number of samples in train subset:", len(train_subset))
+    print("Number of samples in test subset:", len(test_subset))
+
+    trainloader = DataLoader(train_subset, batch_size=32, shuffle=True)
+    testloader = DataLoader(test_subset, batch_size=32, shuffle=False)
+
+    return trainloader, testloader
+
 net = load_model()
-trainloader, testloader = load_data()
 
-class FlowerClient(fl.client.NumPyClient): # Update weights of client model
-    def __init__(self, trainloader, classes):
-        super().__init__()
-        self.trainloader = trainloader
-        self.classes = classes
-
+class FlowerClient(fl.client.NumPyClient):
     def get_parameters(self, config):
         return [val.cpu().numpy() for _, val in net.state_dict().items()]
 
     def fit(self, parameters, config):
         set_parameters(net, parameters)
-        train(net, self.trainloader, epochs=1)
-        return self.get_parameters({}), len(self.trainloader.dataset), {}
+        train(net, trainloader, epochs=1)
+        return self.get_parameters({}), len(trainloader.dataset), {}
 
     def evaluate(self, parameters, config):
         set_parameters(net, parameters)
         loss, accuracy = test(net, testloader)
         return float(loss), len(testloader.dataset), {"accuracy": accuracy}
 
-def partition_data(trainloader, classes):
-    partitioned_data = []
-    for images, labels in trainloader:
-        for cls in classes:
-            cls_indices = (labels == cls).nonzero(as_tuple=True)[0]
-            cls_images = images[cls_indices]
-            cls_labels = labels[cls_indices]
-            partitioned_data.append((cls_images, cls_labels))
-    return partitioned_data
-
-# Assuming each client is responsible for one classes
-classes_per_client = 1
-num_clients = 9
-clients_data = []
-for i in range(num_clients):
-    classes = list(range(i * classes_per_client, (i + 1) * classes_per_client))
-    partitioned_data = partition_data(trainloader, classes)
-    clients_data.append(partitioned_data)
-
-clients = []
-for data in clients_data:
-    client = FlowerClient(data, classes)
-    clients.append(client)
-
-fl.client.start_numpy_client(
-    server_address="127.0.0.1:8080",
-    client=client,
-)
-
+if __name__ == "__main__":
+    i = int(sys.argv[1])
+    print("****************")
+    print(i)
+    print("****************")
+    trainloader, testloader = load_data(i)
+    fl.client.start_numpy_client(
+        server_address="127.0.0.1:8080",
+        client=FlowerClient(),
+    )
