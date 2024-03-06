@@ -64,7 +64,7 @@ net = load_model()
 
 class FlowerClient(fl.client.NumPyClient):
     def __init__(self, client_number):
-        super.__init__(self)
+        super.__init__()
         self.client_number = client_number
         self.glob = 0 #Variable to check to make sure that the current model is the global model
 
@@ -78,7 +78,7 @@ class FlowerClient(fl.client.NumPyClient):
             self.evaluate(parameters, config)
             self.glob = 0
         set_parameters(net, parameters)
-        train(net, trainloader, epochs=1)
+        train(net, trainloader, epochs=5)
         return self.get_parameters({}), len(trainloader.dataset), {}
 
     def evaluate(self, parameters, config):
