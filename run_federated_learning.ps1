@@ -1,3 +1,4 @@
+# To RUN: PowerShell.exe -ExecutionPolicy Bypass -File .\run_federated_learning.ps1
 # Define the paths
 $server_script_path = "C:\Users\wadeg\capstone\Federated-Learning-Model-WadeBranch\server.py"
 $client_script_path = "C:\Users\wadeg\capstone\Federated-Learning-Model-WadeBranch\client.py"
