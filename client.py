@@ -96,5 +96,5 @@ if __name__ == "__main__":
     trainloader, testloader = load_data(i)
     fl.client.start_numpy_client(
         server_address="127.0.0.1:8080",
-        client=FlowerClient(),
+        client=FlowerClient(client_number=i),
     )
