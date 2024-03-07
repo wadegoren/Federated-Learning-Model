@@ -20,10 +20,11 @@ def load_data(i_str):
     testset = CIFAR10("./data", train=False, download=True, transform=trf)
     
     num_classes = len(trainset.classes)
-    classes_per_partition = num_classes // i
+    print("NUMBER OF CLASSES: ", num_classes)
+    classes_per_partition = num_classes // 5
 
     start_idx = (i - 1) * classes_per_partition
-    end_idx = i * classes_per_partition if i < 10 else num_classes
+    end_idx = i * classes_per_partition if i < 5 else num_classes
 
     selected_classes_indices = list(range(start_idx, end_idx))
     print("Selectedf classes indicies: ", selected_classes_indices)
@@ -62,17 +63,29 @@ def load_data(i_str):
 net = load_model()
 
 class FlowerClient(fl.client.NumPyClient):
+    def __init__(self, client_number):
+        super().__init__()
+        self.client_number = client_number
+        self.glob = 0
+
     def get_parameters(self, config):
         return [val.cpu().numpy() for _, val in net.state_dict().items()]
 
     def fit(self, parameters, config):
+        # if (self.client_number == 1):
+        #     self.glob = 1
+        #     print("\nTESTING GLOBAL MODEL\n")
+        #     self.evaluate(parameters, config)
+        #     self.glob = 0
         set_parameters(net, parameters)
-        train(net, trainloader, epochs=1)
+        train(net, trainloader, epochs=20)
         return self.get_parameters({}), len(trainloader.dataset), {}
 
     def evaluate(self, parameters, config):
         set_parameters(net, parameters)
         loss, accuracy = test(net, testloader)
+        # if (self.client_number == 1 and self.glob == 1):
+        #     print("GLOBAL ACCRUACY: ", accuracy)
         return float(loss), len(testloader.dataset), {"accuracy": accuracy}
 
 if __name__ == "__main__":
@@ -81,7 +94,8 @@ if __name__ == "__main__":
     print(i)
     print("****************")
     trainloader, testloader = load_data(i)
+
     fl.client.start_numpy_client(
         server_address="127.0.0.1:8080",
-        client=FlowerClient(),
+        client=FlowerClient(client_number=i),
     )

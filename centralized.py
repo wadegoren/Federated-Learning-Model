@@ -98,15 +98,6 @@ def load_data():
 def load_model():
     return Net().to(DEVICE)
 
-
-
-
-
-
-
-
-
-
 def generate_prime_pairs(num_sets, public_exponent=65537, key_size=2048):
     prime_sets = []
     same_n_and_e = False

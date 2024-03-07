@@ -12,7 +12,7 @@ osascript -e 'tell application "Terminal" to do script "source '"$venv_dir"'/bin
 sleep 15
 
 # Run the client.py script five times
-for ((i=1; i<=10; i++))
+for ((i=1; i<=5; i++))
 do
     # osascript -e 'tell application "Terminal" to do script "source '"$venv_dir"'/bin/activate && pip install pyOpenSSL scikit-learn flwr torch torchvision && sleep 5 && python '"$client_script_path"'"'
     osascript -e 'tell application "Terminal" to do script "source '"$venv_dir"'/bin/activate && pip install pyOpenSSL scikit-learn flwr torch torchvision matplotlib && sleep 5 && python '"$client_script_path"' '"$i"'"'
