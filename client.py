@@ -1,11 +1,21 @@
-from centralized import train, test, load_data, load_model
+from centralized import train_model, test, load_data, load_model
 import flwr as fl
-import torch
+import torch 
+import torch.nn as nn
+import torch.optim as optim
+from torch.optim import lr_scheduler 
 import sys
 from torchvision.transforms import Compose, ToTensor, Normalize
 from torchvision.datasets import CIFAR10
 from torch.utils.data import DataLoader
 from collections import OrderedDict
+from torchvision.datasets import ImageFolder
+import os
+from torchvision import transforms
+from torchvision.transforms import Resize
+from torchvision import datasets, models, transforms
+import torchvision
+
 
 def set_parameters(model, parameters): 
     params_dict = zip(model.state_dict().keys(), parameters)
@@ -14,51 +24,62 @@ def set_parameters(model, parameters):
     return model
 
 def load_data(i_str):
-    i = int(i_str)  # Convert string to integer
-    trf = Compose([ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-    trainset = CIFAR10("./data", train=True, download=True, transform=trf)
-    testset = CIFAR10("./data", train=False, download=True, transform=trf)
-    
-    num_classes = len(trainset.classes)
-    print("NUMBER OF CLASSES: ", num_classes)
-    classes_per_partition = num_classes // 5
+    device = torch.device("cpu")
+    data_transforms = {
+    'train': transforms.Compose([
+        transforms.RandomResizedCrop(224),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize([0.5, 0.5, 0.5], [0.25, 0.25, 0.25])
+    ]),
+    'valid': transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize([0.5, 0.5, 0.5], [0.25, 0.25, 0.25])
+    ]),
+}
+    data_path = '/Users/matthewmaceachern/Downloads/Federated-Learning-Model/Data'
 
-    start_idx = (i - 1) * classes_per_partition
-    end_idx = i * classes_per_partition if i < 5 else num_classes
+    # Create custom datasets for training and validation sets
+    image_datasets = {x: datasets.ImageFolder(os.path.join(data_path, x),
+                                            data_transforms[x])
+                    for x in ['train', 'valid']}
 
-    selected_classes_indices = list(range(start_idx, end_idx))
-    print("Selectedf classes indicies: ", selected_classes_indices)
-    selected_classes_names = [trainset.classes[idx] for idx in selected_classes_indices]  # Get class names
-    print("Selected classes names:", selected_classes_names)
+    # Add all datasets to loaders
+    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=4,
+                                                shuffle=True, num_workers=4)
+                    for x in ['train', 'valid']}
 
+    dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'valid']}
+    print("DATASET SIZES: ", dataset_sizes)
 
-    train_indices = [idx for idx, (_, label) in enumerate(trainset) if label in selected_classes_indices]
-    # print("TRain indicies: ", train_indices)
-    test_indices = [idx for idx, (_, label) in enumerate(testset) if label in selected_classes_indices]
-    # print("test indicies: ", test_indices)
+    # fine tune the classification layers on ct scans
+    model_conv = torchvision.models.resnet18(weights='ResNet18_Weights.DEFAULT')
 
+    # uncomment below to perform only fine-tuned training
+    # for param in model_conv.parameters():
+    #     param.requires_grad = False
 
-    train_subset = torch.utils.data.Subset(trainset, train_indices)
-    test_subset = torch.utils.data.Subset(testset, test_indices)
+    # Only the new fc layers will be trained
+    num_ftrs = model_conv.fc.in_features
+    model_conv.fc = nn.Linear(num_ftrs, 4)
 
-    trainloader = DataLoader(train_subset, batch_size=32, shuffle=True)
-    testloader = DataLoader(test_subset, batch_size=32, shuffle=False)
+    model_conv = model_conv.to(device)
 
-    print("Number of samples in trainset:", len(trainset))
-    print("Number of samples in testset:", len(testset))
-    print("Number of train indices:", len(train_indices))
-    print("Number of test indices:", len(test_indices))
+    criterion = nn.CrossEntropyLoss()
 
-    # train_subset = torch.utils.data.Subset(trainset, train_indices)
-    # test_subset = torch.utils.data.Subset(testset, test_indices)
+    # Observe that only parameters of final layer are being optimized as
+    optimizer_conv = optim.SGD(model_conv.fc.parameters(), lr=0.001, momentum=0.9)
 
-    print("Number of samples in train subset:", len(train_subset))
-    print("Number of samples in test subset:", len(test_subset))
+    # Decay LR by a factor of 0.1 every step_size epochs
+    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_conv, step_size=5, gamma=0.1)
 
-    trainloader = DataLoader(train_subset, batch_size=32, shuffle=True)
-    testloader = DataLoader(test_subset, batch_size=32, shuffle=False)
+    model_conv = train_model(model=model_conv, criterion=criterion, 
+                            optimizer=optimizer_conv, scheduler=exp_lr_scheduler, 
+                            num_epochs=25, dataloaders=dataloaders, 
+                            dataset_sizes=dataset_sizes, device=device)
 
-    return trainloader, testloader
 
 net = load_model()
 
@@ -83,17 +104,17 @@ class FlowerClient(fl.client.NumPyClient):
 
     def evaluate(self, parameters, config):
         set_parameters(net, parameters)
-        loss, accuracy = test(net, testloader)
+        # loss, accuracy = test(net, testloader)
         # if (self.client_number == 1 and self.glob == 1):
         #     print("GLOBAL ACCRUACY: ", accuracy)
-        return float(loss), len(testloader.dataset), {"accuracy": accuracy}
+        # return float(loss), len(testloader.dataset), {"accuracy": accuracy}
 
 if __name__ == "__main__":
     i = int(sys.argv[1])
     print("****************")
     print(i)
     print("****************")
-    trainloader, testloader = load_data(i)
+    trainloader = load_data(i)
 
     fl.client.start_numpy_client(
         server_address="127.0.0.1:8080",
