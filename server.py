@@ -28,7 +28,7 @@ def plot_and_show_graph():
 
 fl.server.start_server( # Open server connection
     server_address="0.0.0.0:8080",
-    config=fl.server.ServerConfig(num_rounds=10),
+    config=fl.server.ServerConfig(num_rounds=3),
     strategy=fl.server.strategy.FedAvg(
         evaluate_metrics_aggregation_fn=weighted_average # Global Weights
     ),

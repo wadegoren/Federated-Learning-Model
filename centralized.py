@@ -5,6 +5,8 @@ from torchvision.transforms import Compose, ToTensor, Normalize
 from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10
 import sklearn
+import torch.optim as optim
+from torch.optim import lr_scheduler 
 
 from sklearn.model_selection import train_test_split
 import numpy as np
@@ -21,64 +23,105 @@ class Net(nn.Module):
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)
+        # Adjust the input size for fc1 based on the output size after the convolutions and pooling
+        self.fc1 = nn.Linear(16 * 53 * 53, 120)
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, 10)
 
     def forward(self, x):
+        # Print the input shape
+        # print("Input shape:", x.shape)
+        
         x = self.pool(F.relu(self.conv1(x)))
+        # Print the shape after the first convolutional layer and pooling
+        # print("Shape after conv1 and pool:", x.shape)
+        
         x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, 16 * 5 * 5)
+        # Print the shape after the second convolutional layer and pooling
+        # print("Shape after conv2 and pool:", x.shape)
+        
+        # Flatten the tensor before the fully connected layers
+        x = x.view(-1, 16 * 53 * 53)  # Adjust the size based on the actual output size
+        # Print the flattened shape
+        # print("Flattened shape:", x.shape)
+        
         x = F.relu(self.fc1(x))
+        # Print the shape after the first fully connected layer
+        # print("Shape after fc1:", x.shape)
+        
         x = F.relu(self.fc2(x))
-        return self.fc3(x)
+        # Print the shape after the second fully connected layer
+        # print("Shape after fc2:", x.shape)
+        
+        x = self.fc3(x)
+        # Print the final output shape
+        # print("Final output shape:", x.shape)
+        
+        return x
 
-def train_model(model, dataloaders, dataset_sizes, device, criterion, optimizer, scheduler, num_epochs=3):
+    
+def train(net, trainloader, epochs):
+    criterion = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+    for epoch in range(epochs):
+        for images, labels in trainloader:
+            images, labels = images.to(DEVICE), labels.to(DEVICE)
+            optimizer.zero_grad()
+            criterion(net(images), labels).backward()
+            optimizer.step()
+# def train_model(model, dataloaders, num_epochs=3):
+#     criterion = nn.CrossEntropyLoss()
 
-    for epoch in range(num_epochs):
-        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
-        print('-' * 10)
+#     # Observe that only parameters of final layer are being optimized as
+#     optimizer_conv = optim.SGD(model_conv.fc.parameters(), lr=0.001, momentum=0.9)
 
-        # Each epoch has a training and validation phase
-        for phase in ['train', 'valid']:
-            if phase == 'train':
-                model.train()  # Set model to training mode
-            else:
-                model.eval()   # Set model to evaluate mode
+#     # Decay LR by a factor of 0.1 every step_size epochs
+#     exp_lr_scheduler = lr_scheduler.StepLR(optimizer_conv, step_size=5, gamma=0.1)
 
-            running_loss = 0.0
-            running_corrects = 0
+#     for epoch in range(num_epochs):
+#         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
+#         print('-' * 10)
 
-            # Iterate over data.
-            for inputs, labels in dataloaders[phase]:
-                inputs = inputs.to(device)
-                labels = labels.to(device)
+#         # Each epoch has a training and validation phase
+#         for phase in ['train', 'valid']:
+#             if phase == 'train':
+#                 model.train()  # Set model to training mode
+#             else:
+#                 model.eval()   # Set model to evaluate mode
 
-                # forward
-                # track history if only in train
-                with torch.set_grad_enabled(phase == 'train'):
-                    outputs = model(inputs)
-                    _, preds = torch.max(outputs, 1)
-                    loss = criterion(outputs, labels)
+#             running_loss = 0.0
+#             running_corrects = 0
 
-                    # backward + optimize only if in training phase
-                    if phase == 'train':
-                        optimizer.zero_grad()
-                        loss.backward()
-                        optimizer.step()
+#             # Iterate over data.
+#             for inputs, labels in dataloaders[phase]:
+#                 inputs = inputs.to(device)
+#                 labels = labels.to(device)
 
-                # statistics
-                running_loss += loss.item() * inputs.size(0)
-                running_corrects += torch.sum(preds == labels.data)
+#                 # forward
+#                 # track history if only in train
+#                 with torch.set_grad_enabled(phase == 'train'):
+#                     outputs = model(inputs)
+#                     _, preds = torch.max(outputs, 1)
+#                     loss = criterion(outputs, labels)
 
-            if phase == 'train':
-                scheduler.step()
+#                     # backward + optimize only if in training phase
+#                     if phase == 'train':
+#                         optimizer.zero_grad()
+#                         loss.backward()
+#                         optimizer.step()
 
-            epoch_loss = running_loss / dataset_sizes[phase]
-            epoch_acc = running_corrects.double() / dataset_sizes[phase]
+#                 # statistics
+#                 running_loss += loss.item() * inputs.size(0)
+#                 running_corrects += torch.sum(preds == labels.data)
 
-            print('{} Loss: {:.4f} Acc: {:.4f}'.format(
-                phase, epoch_loss, epoch_acc))
+#             if phase == 'train':
+#                 scheduler.step()
+
+#             epoch_loss = running_loss / dataset_sizes[phase]
+#             epoch_acc = running_corrects.double() / dataset_sizes[phase]
+
+#             print('{} Loss: {:.4f} Acc: {:.4f}'.format(
+#                 phase, epoch_loss, epoch_acc))
 
         # PATH = 'model_weights.pth'
         # torch.save(model.state_dict(), PATH)
@@ -95,11 +138,11 @@ def test(net, testloader):
             correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
     return loss / len(testloader.dataset), correct / total
 
-def load_data():
-    trf = Compose([ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-    trainset = CIFAR10("./data", train=True, download=True, transform=trf)
-    testset = CIFAR10("./data", train=False, download=True, transform=trf)
-    return DataLoader(trainset, batch_size=32, shuffle=True), DataLoader(testset)
+# def load_data():
+#     trf = Compose([ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+#     trainset = CIFAR10("./data", train=True, download=True, transform=trf)
+#     testset = CIFAR10("./data", train=False, download=True, transform=trf)
+#     return DataLoader(trainset, batch_size=32, shuffle=True), DataLoader(testset)
 
 # def load_data(i):
 #     trf = Compose([ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
